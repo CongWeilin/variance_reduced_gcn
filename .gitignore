@@ -4,3 +4,4 @@ __pycache__
 archieve
 data
 *.pkl
+*.ipynb
