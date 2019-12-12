@@ -12,7 +12,7 @@ from torch.nn import init
 from torch.autograd import Variable
 import torch.nn.functional as F
 import torch.optim as optim
-from copy import deepcopy
+import copy
 from sklearn.preprocessing import StandardScaler
 from networkx.readwrite import json_graph
 import json
@@ -25,7 +25,7 @@ import networkx as nx
 import time
 import sys
 import os
-
+import math
 """
 Load data function adopted from https://github.com/williamleif/GraphSAGE
 """
@@ -147,14 +147,14 @@ def load_data_gcn(dataset_str):
     names = ['x', 'y', 'tx', 'ty', 'allx', 'ally', 'graph']
     objects = []
     for i in range(len(names)):
-        with open("data/ind.{}.{}".format(dataset_str, names[i]), 'rb') as f:
+        with open("data/gcn/ind.{}.{}".format(dataset_str, names[i]), 'rb') as f:
             if sys.version_info > (3, 0):
                 objects.append(pkl.load(f, encoding='latin1'))
             else:
                 objects.append(pkl.load(f))
 
     x, y, tx, ty, allx, ally, graph = tuple(objects)
-    test_idx_reorder = parse_index_file("data/ind.{}.test.index".format(dataset_str))
+    test_idx_reorder = parse_index_file("data/gcn/ind.{}.test.index".format(dataset_str))
     test_idx_range = np.sort(test_idx_reorder)
 
     if dataset_str == 'citeseer':
@@ -190,7 +190,7 @@ def load_data_gcn(dataset_str):
         np.array(idx_train), np.array(idx_val), np.array(idx_test)
 
 def preprocess_data(dataset):
-    if dataset=='ppi' or dataset=='reddit':
+    if dataset=='ppi' or dataset=='ppi-large' or dataset=='reddit' or dataset=='flickr':
         prefix = './data/{}/{}'.format(dataset, dataset)
         G, feats, id_map, walks, class_map = load_data_graphsage(prefix)
 
