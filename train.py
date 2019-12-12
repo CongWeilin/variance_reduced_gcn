@@ -34,7 +34,7 @@ parser.add_argument('--n_layers', type=int, default=2,
 parser.add_argument('--samp_num', type=int, default=512,
                     help='Number of sampled nodes per layer (only for ladies & factgcn)')
 parser.add_argument('--sample_method', type=str, default='graphsage',
-                    help='Sampled Algorithms: ladies/fastgcn/graphsage/exact')
+                    help='Sampled Algorithms: ladies/fastgcn/graphsage/graphsaint/exact')
 parser.add_argument('--dropout', type=float, default=0,
                     help='Dropout rate')
 parser.add_argument('--cuda', type=int, default=1,

@@ -76,7 +76,7 @@ def graphsaint_sampler(seed, batch_nodes, samp_num_list, num_nodes, lap_matrix, 
     sampled = np.unique(np.concatenate(sampled))
     adj = lap_matrix[sampled,:][:,sampled]
 
-    adjs += [sparse_mx_to_torch_sparse_tensor(row_normalize(adj)) for d in range(depth)]
+    adjs = [sparse_mx_to_torch_sparse_tensor(row_normalize(adj)) for d in range(depth)]
     sampled_nodes = [sampled for d in range(depth)]
     return adjs, sampled, sampled, sampled_nodes
 
