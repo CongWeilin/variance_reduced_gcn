@@ -1,5 +1,7 @@
 # Variance Reduced Graph Convolutional Network
 
+Dataset can be download from [google drive](https://drive.google.com/drive/folders/1qrFuQOxrbaDziJFeEkpAiXmL_C8dlk3K?usp=sharing)
+
 | Dataset   | Nodes   | Edges      | Degree | Feature | Classes | Train/Val/Test |
 |-----------|---------|------------|--------|---------|---------|----------------|
 | Flickr    | 89,250  | 899,756    | 10     | 500     | 7       | 50%/25%/25%    |
