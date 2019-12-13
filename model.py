@@ -61,3 +61,8 @@ class GCN(nn.Module):
         full_grad_loss = torch.sqrt(full_grad_loss.cpu())
 
         return loss.detach(), full_grad_loss.detach()
+
+    def calculate_f1(self, x, adjs, targets, batch_nodes):
+        outputs = self.forward(x, adjs)
+        outputs = outputs.argmax(dim=1)
+        return f1_score(outputs[batch_nodes].cpu().detach(), targets[batch_nodes].cpu().detach(), average="micro")

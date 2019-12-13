@@ -10,6 +10,7 @@ Dataset can be download from [google drive](https://drive.google.com/drive/folde
 | PPI-large | 56,944  | 2,818,716  | 14     | 50      | 121     | 79%/11%/10%    |
 | Yelp      | 716,847 | 6,977,410  | 10     | 300     | 100     | 75%/10%/15%    |
 
+Run examples: run LADIES on Flickr dataset
 ```
-python train.py --sample_method graphsaint --dataset yelp
+python train.py --dataset flickr --sample_method ladies
 ```
