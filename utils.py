@@ -194,12 +194,15 @@ def load_data_gcn(dataset_str):
     idx_train = range(len(ally)-500)
     idx_val = range(len(ally)-500, len(ally))
 
-    return np.array(edges), np.array(labels), features.toarray(), \
+    adj_matrix = get_adj(edges, features.shape[0])
+    lap_matrix = normalize(adj_matrix + sp.eye(adj_matrix.shape[0]))
+
+    return lap_matrix, np.array(labels), features.toarray(), \
         np.array(idx_train), np.array(idx_val), np.array(idx_test)
 
 
 def preprocess_data(dataset):
-    if dataset in ['ppi', 'ppi-large', 'reddit', 'flickr', 'yelp', 'amazon']:
+    if dataset in ['ppi', 'ppi-large', 'reddit', 'flickr', 'yelp']:
         # dataset=='ppi' or dataset=='ppi-large' or dataset=='reddit' or dataset=='flickr':
         prefix = './data/{}/{}'.format(dataset, dataset)
         G, feats, id_map, walks, class_map = load_data_graphsage(prefix)
@@ -222,13 +225,57 @@ def preprocess_data(dataset):
             degrees[s] = len(G[s])
             labels += [class_map[str(s)]]
 
-        return np.array(edges), np.array(labels), np.array(feats), \
+        adj_matrix = get_adj(edges, feats.shape[0])
+        lap_matrix = normalize(adj_matrix + sp.eye(adj_matrix.shape[0]))
+
+        return lap_matrix, np.array(labels), np.array(feats), \
             np.array(idx_train), np.array(idx_val), np.array(idx_test)
 
     elif dataset in ['cora', 'citeseer', 'pubmed']:
         # dataset=='cora' or dataset=='citeseer' or dataset=='pubmed':
         return load_data_gcn(dataset)
 
+    elif dataset in ['amazon']:
+        prefix = './data/{}/'.format(dataset)
+
+        adj_full = sp.load_npz('{}/adj_full.npz'.format(prefix)).astype(np.bool)
+        lap_matrix = normalize(adj_full)
+
+        role = json.load(open('{}/role.json'.format(prefix)))
+        idx_train = role['tr']
+        idx_val   = role['va']
+        inx_test  = role['te']
+        
+        feats = np.load('{}/feats.npy'.format(prefix))
+        class_map = json.load(open('{}/class_map.json'.format(prefix)))
+        class_map = {int(k):v for k,v in class_map.items()}
+        assert len(class_map) == feats.shape[0]
+        # ---- get node label ----
+        num_vertices = adj_full.shape[0]
+        if isinstance(list(class_map.values())[0],list):
+            num_classes = len(list(class_map.values())[0])
+            labels = np.zeros((num_vertices, num_classes))
+            for k,v in class_map.items():
+                labels[k] = v
+        else:
+            num_classes = max(class_map.values()) - min(class_map.values()) + 1
+            labels = np.zeros((num_vertices, num_classes))
+            offset = min(class_map.values())
+            for k,v in class_map.items():
+                labels[k][v-offset] = 1
+            
+        # ---- normalize feats ----
+        train_feats = feats[idx_train]
+        scaler = StandardScaler()
+        scaler.fit(train_feats)
+        feats = scaler.transform(feats)
+        # -------------------------
+        idx_train = role['tr']
+        idx_val   = role['va']
+        inx_test  = role['te']
+
+        return lap_matrix, np.array(labels), np.array(feats), \
+            np.array(idx_train), np.array(idx_val), np.array(idx_test)
 
 def normalize(mx):
     """Sym-normalize sparse matrix"""

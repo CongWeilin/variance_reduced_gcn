@@ -64,14 +64,11 @@ def prepare_data(pool, sampler, process_ids, train_nodes, samp_num_list, num_nod
     return jobs
 
 
-edges, labels, feat_data, train_nodes, valid_nodes, test_nodes = preprocess_data(
+lap_matrix, labels, feat_data, train_nodes, valid_nodes, test_nodes = preprocess_data(
     args.dataset)
 print("Dataset information")
-print(edges.shape, labels.shape, feat_data.shape,
+print(lap_matrix.shape, labels.shape, feat_data.shape,
       train_nodes.shape, valid_nodes.shape, test_nodes.shape)
-
-adj_matrix = get_adj(edges, feat_data.shape[0])
-lap_matrix = normalize(adj_matrix + sp.eye(adj_matrix.shape[0]))
 
 if type(feat_data) == sp.lil.lil_matrix:
     feat_data = torch.FloatTensor(feat_data.todense()).to(device)
