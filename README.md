@@ -9,3 +9,7 @@ Dataset can be download from [google drive](https://drive.google.com/drive/folde
 | PPI       | 14,755  | 225,270    | 15     | 50      | 121     | 66%/12%/22%    |
 | PPI-large | 56,944  | 2,818,716  | 14     | 50      | 121     | 79%/11%/10%    |
 | Yelp      | 716,847 | 6,977,410  | 10     | 300     | 100     | 75%/10%/15%    |
+
+```
+python train.py --sample_method graphsaint --dataset yelp
+```
