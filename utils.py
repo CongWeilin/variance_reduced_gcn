@@ -194,6 +194,7 @@ def load_data_gcn(dataset_str):
     idx_train = range(len(ally)-500)
     idx_val = range(len(ally)-500, len(ally))
 
+    edges = np.array(edges)
     adj_matrix = get_adj(edges, features.shape[0])
     lap_matrix = normalize(adj_matrix + sp.eye(adj_matrix.shape[0]))
 
@@ -225,6 +226,7 @@ def preprocess_data(dataset):
             degrees[s] = len(G[s])
             labels += [class_map[str(s)]]
 
+        edges = np.array(edges)
         adj_matrix = get_adj(edges, feats.shape[0])
         lap_matrix = normalize(adj_matrix + sp.eye(adj_matrix.shape[0]))
 
@@ -276,13 +278,6 @@ def get_sparse(edges, num_nodes):
 
 
 def row_normalize(mx):
-    #     """Row-normalize sparse matrix"""
-    #     rowsum = np.array(mx.sum(1))
-    #     r_inv = np.power(rowsum, -1).flatten()
-    #     r_inv[np.isinf(r_inv)] = 0.
-    #     r_mat_inv = sp.diags(r_inv)
-    #     mx = r_mat_inv.dot(mx)
-    #     return mx
     """Row-normalize sparse matrix"""
     rowsum = np.array(mx.sum(1))
     r_inv = np.divide(np.ones_like(rowsum), rowsum,
