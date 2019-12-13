@@ -244,7 +244,7 @@ def preprocess_data(dataset):
         role = json.load(open('{}/role.json'.format(prefix)))
         idx_train = role['tr']
         idx_val   = role['va']
-        inx_test  = role['te']
+        idx_test  = role['te']
         
         feats = np.load('{}/feats.npy'.format(prefix))
         class_map = json.load(open('{}/class_map.json'.format(prefix)))
@@ -272,7 +272,7 @@ def preprocess_data(dataset):
         # -------------------------
         idx_train = role['tr']
         idx_val   = role['va']
-        inx_test  = role['te']
+        idx_test  = role['te']
 
         return lap_matrix, np.array(labels), np.array(feats), \
             np.array(idx_train), np.array(idx_val), np.array(idx_test)
