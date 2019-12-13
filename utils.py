@@ -32,6 +32,7 @@ Load data function adopted from https://github.com/williamleif/GraphSAGE
 WALK_LEN = 5
 N_WALKS = 50
 
+
 def load_data_graphsage(prefix, normalize=True, load_walks=False):
     G_data = json.load(open(prefix + "-G.json"))
     G = json_graph.node_link_graph(G_data)
@@ -79,7 +80,8 @@ def load_data_graphsage(prefix, normalize=True, load_walks=False):
 
     if normalize and not feats is None:
         from sklearn.preprocessing import StandardScaler
-        train_ids = np.array([id_map[str(n)] for n in G.nodes() if not G.node[n]['val'] and not G.node[n]['test']])
+        train_ids = np.array([id_map[str(n)] for n in G.nodes(
+        ) if not G.node[n]['val'] and not G.node[n]['test']])
         train_feats = feats[train_ids]
         scaler = StandardScaler()
         scaler.fit(train_feats)
@@ -110,9 +112,11 @@ def run_random_walks(G, nodes, num_walks=N_WALKS):
             print("Done walks for", count, "nodes")
     return pairs
 
+
 """
 Load data function adopted from https://github.com/tkipf/gcn
 """
+
 
 def parse_index_file(filename):
     """Parse index file."""
@@ -121,11 +125,13 @@ def parse_index_file(filename):
         index.append(int(line.strip()))
     return index
 
+
 def sample_mask(idx, l):
     """Create mask."""
     mask = np.zeros(l)
     mask[idx] = 1
     return np.array(mask, dtype=np.bool)
+
 
 def load_data_gcn(dataset_str):
     """
@@ -154,13 +160,15 @@ def load_data_gcn(dataset_str):
                 objects.append(pkl.load(f))
 
     x, y, tx, ty, allx, ally, graph = tuple(objects)
-    test_idx_reorder = parse_index_file("data/gcn/ind.{}.test.index".format(dataset_str))
+    test_idx_reorder = parse_index_file(
+        "data/gcn/ind.{}.test.index".format(dataset_str))
     test_idx_range = np.sort(test_idx_reorder)
 
     if dataset_str == 'citeseer':
         # Fix citeseer dataset (there are some isolated nodes in the graph)
         # Find isolated nodes, add them as zero-vecs into the right position
-        test_idx_range_full = range(min(test_idx_reorder), max(test_idx_reorder)+1)
+        test_idx_range_full = range(
+            min(test_idx_reorder), max(test_idx_reorder)+1)
         tx_extended = sp.lil_matrix((len(test_idx_range_full), x.shape[1]))
         tx_extended[test_idx_range-min(test_idx_range), :] = tx
         tx = tx_extended
@@ -172,7 +180,7 @@ def load_data_gcn(dataset_str):
     features[test_idx_reorder, :] = features[test_idx_range, :]
 
     G = nx.from_dict_of_lists(graph)
-    
+
     edges = []
     for s in G:
         for t in G[s]:
@@ -180,7 +188,7 @@ def load_data_gcn(dataset_str):
 
     labels = np.vstack((ally, ty))
     labels[test_idx_reorder, :] = labels[test_idx_range, :]
-    labels = labels.argmax(axis=1) # pytorch require target 1d
+    labels = labels.argmax(axis=1)  # pytorch require target 1d
 
     idx_test = test_idx_range.tolist()
     idx_train = range(len(ally)-500)
@@ -189,8 +197,10 @@ def load_data_gcn(dataset_str):
     return np.array(edges), np.array(labels), features.toarray(), \
         np.array(idx_train), np.array(idx_val), np.array(idx_test)
 
+
 def preprocess_data(dataset):
-    if dataset=='ppi' or dataset=='ppi-large' or dataset=='reddit' or dataset=='flickr':
+    if dataset in ['ppi', 'ppi-large', 'reddit', 'flickr', 'yelp', 'amazon']:
+        # dataset=='ppi' or dataset=='ppi-large' or dataset=='reddit' or dataset=='flickr':
         prefix = './data/{}/{}'.format(dataset, dataset)
         G, feats, id_map, walks, class_map = load_data_graphsage(prefix)
 
@@ -215,7 +225,8 @@ def preprocess_data(dataset):
         return np.array(edges), np.array(labels), np.array(feats), \
             np.array(idx_train), np.array(idx_val), np.array(idx_test)
 
-    elif dataset=='cora' or dataset=='citeseer' or dataset=='pubmed':
+    elif dataset in ['cora', 'citeseer', 'pubmed']:
+        # dataset=='cora' or dataset=='citeseer' or dataset=='pubmed':
         return load_data_gcn(dataset)
 
 
@@ -308,6 +319,7 @@ def get_adj(edges, num_nodes):
 def get_laplacian(adj):
     adj = normalize(adj + sp.eye(adj.shape[0]))
     return sparse_mx_to_torch_sparse_tensor(adj)
+
 
 def norm_prob(mx):
     mx_sq = mx.multiply(mx)

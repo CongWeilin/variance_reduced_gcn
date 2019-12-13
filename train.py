@@ -4,10 +4,7 @@ Import necessary packages
 from utils import *
 import argparse
 import multiprocessing as mp
-from optimizers import spider_step, multi_level_spider_step_v1, multi_level_spider_step_v2, sgd_step, full_step
-from optimizers import ForwardWrapper, package_mxl
 from samplers import fastgcn_sampler, ladies_sampler, graphsage_sampler, exact_sampler, graphsaint_sampler, full_batch_sampler
-from model import GCN
 
 """
 Dataset arguments
@@ -33,7 +30,7 @@ parser.add_argument('--n_layers', type=int, default=2,
 #                     help='Stop after number of batches that f1 do not increase')
 parser.add_argument('--samp_num', type=int, default=512,
                     help='Number of sampled nodes per layer (only for ladies & factgcn)')
-parser.add_argument('--sample_method', type=str, default='graphsage',
+parser.add_argument('--sample_method', type=str, default='ladies',
                     help='Sampled Algorithms: ladies/fastgcn/graphsage/graphsaint/exact')
 parser.add_argument('--dropout', type=float, default=0,
                     help='Dropout rate')
@@ -73,7 +70,6 @@ print("Dataset information")
 print(edges.shape, labels.shape, feat_data.shape,
       train_nodes.shape, valid_nodes.shape, test_nodes.shape)
 
-num_classes = labels.max().item()+1
 adj_matrix = get_adj(edges, feat_data.shape[0])
 lap_matrix = normalize(adj_matrix + sp.eye(adj_matrix.shape[0]))
 
@@ -81,7 +77,22 @@ if type(feat_data) == sp.lil.lil_matrix:
     feat_data = torch.FloatTensor(feat_data.todense()).to(device)
 else:
     feat_data = torch.FloatTensor(feat_data).to(device)
-labels = torch.LongTensor(labels).to(device)
+
+"""
+Setup datasets and models for training (multi-class use sigmoid+binary_cross_entropy, use softmax+nll_loss otherwise)
+"""
+if args.dataset in ['cora', 'citeseer', 'pubmed', 'flickr', 'reddit']:
+    from model import GCN
+    from optimizers import spider_step, multi_level_spider_step_v1, multi_level_spider_step_v2, sgd_step, full_step
+    from optimizers import ForwardWrapper, package_mxl
+    labels = torch.LongTensor(labels).to(device)
+    num_classes = labels.max().item()+1
+elif args.dataset in ['ppi', 'ppi-large', 'amazon', 'yelp']:
+    from model_mc import GCN
+    from optimizers_mc import spider_step, multi_level_spider_step_v1, multi_level_spider_step_v2, sgd_step, full_step
+    from optimizers_mc import ForwardWrapper, package_mxl
+    labels = torch.FloatTensor(labels).to(device)
+    num_classes = labels.shape[1]
 
 if args.sample_method == 'ladies':
     sampler = ladies_sampler
@@ -95,7 +106,7 @@ elif args.sample_method == 'exact':
 elif args.sample_method == 'graphsage':
     sampler = graphsage_sampler
     assert(args.n_layers == 2)
-    samp_num_list = np.array([25, 10])  # as proposed in GraphSage paper
+    samp_num_list = np.array([5, 5])  # as proposed in GraphSage paper
 elif args.sample_method == 'graphsaint':
     sampler = graphsaint_sampler
     samp_num_list = np.array([-1 for _ in range(args.n_layers)])  # never used
@@ -155,9 +166,9 @@ def sgcn_pplus(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nod
 
         # calculate validate loss
         susage.eval()
-        susage.zero_grad()
-        train_loss, train_grad_norm = susage.calculate_loss_grad(
-            feat_data, adjs_full, labels, train_nodes)
+        # susage.zero_grad()
+        # train_loss, train_grad_norm = susage.calculate_loss_grad(
+        #     feat_data, adjs_full, labels, train_nodes)
         susage.zero_grad()
         val_loss, val_grad_norm = susage.calculate_loss_grad(
             feat_data, adjs_full, labels, valid_nodes)
@@ -221,16 +232,16 @@ def sgcn_pplus_v2(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_
                             lap_matrix, lap_matrix_sq, args.n_layers)
 
         inner_loop_num = args.batch_num
-        cur_train_loss, cur_train_loss_all= spider_step(susage, optimizer, feat_data, labels,
-                                     train_nodes, valid_nodes,
-                                     adjs_full, train_data, inner_loop_num, device)
+        cur_train_loss, cur_train_loss_all = spider_step(susage, optimizer, feat_data, labels,
+                                                         train_nodes, valid_nodes,
+                                                         adjs_full, train_data, inner_loop_num, device)
         loss_train_all.extend(cur_train_loss_all)
 
         # calculate test loss
         susage.eval()
-        susage.zero_grad()
-        train_loss, train_grad_norm = susage.calculate_loss_grad(
-            feat_data, adjs_full, labels, train_nodes)
+        # susage.zero_grad()
+        # train_loss, train_grad_norm = susage.calculate_loss_grad(
+        #     feat_data, adjs_full, labels, train_nodes)
         susage.zero_grad()
         val_loss, val_grad_norm = susage.calculate_loss_grad(
             feat_data, adjs_full, labels, valid_nodes)
@@ -305,9 +316,9 @@ def sgcn_plus(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_node
 
         # calculate validate loss
         susage.eval()
-        susage.zero_grad()
-        train_loss, train_grad_norm = susage.calculate_loss_grad(
-            feat_data, adjs_full, labels, train_nodes)
+        # susage.zero_grad()
+        # train_loss, train_grad_norm = susage.calculate_loss_grad(
+        #     feat_data, adjs_full, labels, train_nodes)
         susage.zero_grad()
         val_loss, val_grad_norm = susage.calculate_loss_grad(
             feat_data, adjs_full, labels, valid_nodes)
@@ -381,9 +392,9 @@ def sgcn(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  a
 
         # calculate test loss
         susage.eval()
-        susage.zero_grad()
-        train_loss, train_grad_norm = susage.calculate_loss_grad(
-            feat_data, adjs_full, labels, train_nodes)
+        # susage.zero_grad()
+        # train_loss, train_grad_norm = susage.calculate_loss_grad(
+        #     feat_data, adjs_full, labels, train_nodes)
         susage.zero_grad()
         val_loss, val_grad_norm = susage.calculate_loss_grad(
             feat_data, adjs_full, labels, valid_nodes)
@@ -399,6 +410,7 @@ def sgcn(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  a
               '| grad norm: %.8f' % cur_grad_norm,)
 
     return susage, loss_train, loss_test, loss_train_all
+
 
 results = dict()
 
@@ -422,5 +434,5 @@ susage, loss_train, loss_test, loss_traub_all = sgcn_pplus_v2(
     feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  args, device)
 results['sgcn_pplus_v2'] = [loss_train, loss_test, loss_traub_all]
 
-with open('result.pkl','wb') as f:
+with open('result.pkl', 'wb') as f:
     pkl.dump(results, f)

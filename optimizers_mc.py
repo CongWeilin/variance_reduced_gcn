@@ -183,7 +183,7 @@ class ForwardWrapper(nn.Module):
                                  ].to(x) - stale_x.detach()
             cached_outputs.append(x.cpu().detach())
         x = net.linear(x)
-        x = F.log_softmax(x, dim=1)
+        x = torch.sigmoid(x)
         for ell in range(self.n_layers):
             self.hiddens[ell, sampled_nodes[ell]] = cached_outputs[ell]
         return x
@@ -195,7 +195,7 @@ class ForwardWrapper(nn.Module):
             x = staled_net.dropout(staled_net.relu(x))
             x = x - x.detach() + self.hiddens[ell, sampled_nodes[ell]].to(x)
         x = staled_net.linear(x)
-        x = F.log_softmax(x, dim=1)
+        x = torch.sigmoid(x)
         return x
 
     def forward_full(self, net, x, adjs, sampled_nodes):
@@ -205,7 +205,7 @@ class ForwardWrapper(nn.Module):
             x = net.dropout(x)
             self.hiddens[ell, sampled_nodes[ell]] = x.cpu().detach()
         x = net.linear(x)
-        x = F.log_softmax(x, dim=1)
+        x = torch.sigmoid(x)
         return x
 
 
@@ -231,7 +231,8 @@ def multi_level_spider_step_v2(net, optimizer, feat_data, labels,
     optimizer.zero_grad()
     outputs = forward_wrapper.forward_full(
         net, feat_data, adjs_full, sampled_nodes_full)
-    current_loss = F.nll_loss(outputs[train_nodes], labels[train_nodes])
+    current_loss = F.binary_cross_entropy(
+        outputs[train_nodes], labels[train_nodes])
     current_loss.backward()
     # record previous net full gradient
     pre_net_full = []
@@ -254,11 +255,11 @@ def multi_level_spider_step_v2(net, optimizer, feat_data, labels,
             pre_net_mini.zero_grad()
             outputs = forward_wrapper.forward_mini_staled(
                 pre_net_mini, feat_data[input_nodes], adjs, sampled_nodes)
-            staled_loss = F.nll_loss(outputs, labels[output_nodes])
+            staled_loss = F.binary_cross_entropy(outputs, labels[output_nodes])
             # debug only, set mini-batch size as full batch, it should have the exact same curve as full-batch GD
             # outputs = forward_wrapper.forward_mini_staled(
             #     pre_net_mini, feat_data, adjs_full, sampled_nodes_full)
-            # staled_loss = F.nll_loss(outputs[train_nodes], labels[train_nodes])
+            # staled_loss = F.binary_cross_entropy(outputs[train_nodes], labels[train_nodes])
             staled_loss.backward()
 
             pre_net_mini_grad = []
@@ -282,9 +283,10 @@ def multi_level_spider_step_v2(net, optimizer, feat_data, labels,
                 interupt = True
                 break
 
-            current_loss = F.nll_loss(outputs, labels[output_nodes])
+            current_loss = F.binary_cross_entropy(
+                outputs, labels[output_nodes])
             # debug only, set mini-batch size as full batch, it should have the exact same curve as full-batch GD
-            # current_loss = F.nll_loss(outputs[train_nodes], labels[train_nodes])
+            # current_loss = F.binary_cross_entropy(outputs[train_nodes], labels[train_nodes])
             current_loss.backward()
 
             # take SCSG gradient step
@@ -330,7 +332,8 @@ def multi_level_spider_step_v1(net, optimizer, feat_data, labels,
     optimizer.zero_grad()
     outputs = forward_wrapper.forward_full(
         net, feat_data, adjs_full, sampled_nodes_full)
-    current_loss = F.nll_loss(outputs[train_nodes], labels[train_nodes])
+    current_loss = F.binary_cross_entropy(
+        outputs[train_nodes], labels[train_nodes])
     current_loss.backward()
 
     initial_hiddens = copy.deepcopy(forward_wrapper.hiddens)
@@ -358,10 +361,11 @@ def multi_level_spider_step_v1(net, optimizer, feat_data, labels,
                 interupt = True
                 break
 
-            current_loss = F.nll_loss(outputs, labels[output_nodes])
+            current_loss = F.binary_cross_entropy(
+                outputs, labels[output_nodes])
             # If we make mini-batch size = full batch, we want the algorithm act like full-batch GD !
             # outputs = forward_wrapper.forward_mini(net, pre_net_mini, feat_data, adjs_full, sampled_nodes_full)
-            # current_loss = F.nll_loss(outputs[train_nodes], labels[train_nodes])
+            # current_loss = F.binary_cross_entropy(outputs[train_nodes], labels[train_nodes])
             current_loss.backward()
 
             # record previous net mini batch gradient

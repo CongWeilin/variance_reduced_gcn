@@ -22,7 +22,7 @@ class GCN(nn.Module):
             x = self.relu(x)
             x = self.dropout(x)
         x = self.linear(x)
-        x = F.log_softmax(x, dim=1)
+        x = torch.sigmoid(x)
         return x
 
     def partial_grad(self, x, adjs, targets):
@@ -33,7 +33,7 @@ class GCN(nn.Module):
         """
         outputs = self.forward(x, adjs)
         # compute the partial loss
-        loss = F.nll_loss(outputs, targets)
+        loss = F.binary_cross_entropy(outputs, targets)
 
         # compute gradient
         loss.backward()
@@ -48,7 +48,8 @@ class GCN(nn.Module):
 
         outputs = self.forward(x, adjs)
         # compute the partial loss
-        loss = F.nll_loss(outputs[batch_nodes], targets[batch_nodes])
+        loss = F.binary_cross_entropy(
+            outputs[batch_nodes], targets[batch_nodes])
 
         # compute gradient
         loss.backward()
