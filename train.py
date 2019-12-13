@@ -13,7 +13,7 @@ parser = argparse.ArgumentParser(
     description='Training GCN on Large-scale Graph Datasets')
 
 parser.add_argument('--dataset', type=str, default='flickr',
-                    help='Dataset name: cora/citeseer/pubmed/flickr/reddit')
+                    help='Dataset name: cora/citeseer/pubmed/flickr/reddit/ppi/ppi-large/yelp')
 parser.add_argument('--nhid', type=int, default=256,
                     help='Hidden state dimension')
 parser.add_argument('--epoch_num', type=int, default=200,

@@ -235,48 +235,6 @@ def preprocess_data(dataset):
         # dataset=='cora' or dataset=='citeseer' or dataset=='pubmed':
         return load_data_gcn(dataset)
 
-    elif dataset in ['amazon']:
-        prefix = './data/{}/'.format(dataset)
-
-        adj_full = sp.load_npz('{}/adj_full.npz'.format(prefix)).astype(np.bool)
-        lap_matrix = normalize(adj_full)
-
-        role = json.load(open('{}/role.json'.format(prefix)))
-        idx_train = role['tr']
-        idx_val   = role['va']
-        idx_test  = role['te']
-        
-        feats = np.load('{}/feats.npy'.format(prefix))
-        class_map = json.load(open('{}/class_map.json'.format(prefix)))
-        class_map = {int(k):v for k,v in class_map.items()}
-        assert len(class_map) == feats.shape[0]
-        # ---- get node label ----
-        num_vertices = adj_full.shape[0]
-        if isinstance(list(class_map.values())[0],list):
-            num_classes = len(list(class_map.values())[0])
-            labels = np.zeros((num_vertices, num_classes))
-            for k,v in class_map.items():
-                labels[k] = v
-        else:
-            num_classes = max(class_map.values()) - min(class_map.values()) + 1
-            labels = np.zeros((num_vertices, num_classes))
-            offset = min(class_map.values())
-            for k,v in class_map.items():
-                labels[k][v-offset] = 1
-            
-        # ---- normalize feats ----
-        train_feats = feats[idx_train]
-        scaler = StandardScaler()
-        scaler.fit(train_feats)
-        feats = scaler.transform(feats)
-        # -------------------------
-        idx_train = role['tr']
-        idx_val   = role['va']
-        idx_test  = role['te']
-
-        return lap_matrix, np.array(labels), np.array(feats), \
-            np.array(idx_train), np.array(idx_val), np.array(idx_test)
-
 def normalize(mx):
     """Sym-normalize sparse matrix"""
     rowsum = np.array(mx.sum(1))
