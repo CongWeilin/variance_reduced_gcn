@@ -1,6 +1,6 @@
 # Variance Reduced Stochastic-GCNs
 
-Dataset can be download from [google drive](https://drive.google.com/drive/folders/1qrFuQOxrbaDziJFeEkpAiXmL_C8dlk3K?usp=sharing).
+Dataset can be download from [google drive](https://drive.google.com/drive/folders/1qrFuQOxrbaDziJFeEkpAiXmL_C8dlk3K?usp=sharing), and put under the project folder.
 
 | Dataset   | Nodes   | Edges      | Degree | Feature | Classes | Train/Val/Test |
 |-----------|---------|------------|--------|---------|---------|----------------|
