@@ -61,7 +61,7 @@ def graphsage_sampler(seed, batch_nodes, samp_num_list, num_nodes, lap_matrix, l
     return adjs, previous_nodes, batch_nodes, sampled_nodes
 
 def graphsaint_sampler(seed, batch_nodes, samp_num_list, num_nodes, lap_matrix, lap_matrix_sq, depth):
-    # random walk sampler
+    # random walk sampler with normalization
     previous_nodes = batch_nodes
     sampled = []
     all_nodes, all_edges = [], []
