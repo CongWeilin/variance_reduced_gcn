@@ -4,5 +4,6 @@ __pycache__
 archieve
 data/*
 results/*.pkl
+results/*.pdf
 *.pkl
 *.ipynb
