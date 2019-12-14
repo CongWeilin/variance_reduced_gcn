@@ -64,19 +64,34 @@ def graphsaint_sampler(seed, batch_nodes, samp_num_list, num_nodes, lap_matrix, 
     # random walk sampler
     previous_nodes = batch_nodes
     sampled = []
+    all_nodes, all_edges = [], []
     for d in range(depth):
         U = lap_matrix[previous_nodes , :]
         after_nodes = []
-        for U_row in U:
-            sample_indices = np.random.choice(U_row.indices, 1, replace=True)
-            after_nodes.append(sample_indices)
-        after_nodes = np.concatenate(after_nodes)
+        for i, U_row in enumerate(U):
+            sample_indices = np.random.choice(U_row.indices, 1000, replace=True)
+            after_nodes.append(sample_indices[0])
+            for j in sample_indices:
+                all_edges.append(np.sort([previous_nodes[i],j]))
+            all_nodes.append(sample_indices)
+        after_nodes = np.array(after_nodes)
         sampled.append(previous_nodes)
         previous_nodes = after_nodes
-    sampled = np.unique(np.concatenate(sampled))
+
+    sampled = np.unique(sampled)
+    u_edges, e_cnts = np.unique(all_edges, axis=0, return_counts=True)
+    u_nodes, n_cnts = np.unique(all_nodes, return_counts=True)
+    u_node_cnt = dict()
+    for u_nodes_,n_cnts_ in zip(u_nodes, n_cnts):
+        u_node_cnt[u_nodes_] = n_cnts_
+
+    for u_edges_,e_cnts_ in zip(u_edges, e_cnts):
+        i,j = u_edges_
+        lap_matrix[i,j] *= float(u_node_cnt[i])/float(e_cnts_)
+        lap_matrix[j,i] *= float(u_node_cnt[j])/float(e_cnts_)
     adj = lap_matrix[sampled,:][:,sampled]
 
-    adjs = [sparse_mx_to_torch_sparse_tensor(row_normalize(adj)) for d in range(depth)]
+    adjs = [sparse_mx_to_torch_sparse_tensor(adj) for d in range(depth)]
     sampled_nodes = [sampled for d in range(depth)]
     return adjs, sampled, sampled, sampled_nodes
 
