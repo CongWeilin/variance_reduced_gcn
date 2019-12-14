@@ -64,7 +64,7 @@ def graphsaint_sampler(seed, batch_nodes, samp_num_list, num_nodes, lap_matrix, 
     # random walk sampler with normalization
     previous_nodes = batch_nodes
     sampled = []
-    all_nodes, all_edges = [], []
+    all_nodes, all_edges = [previous_nodes], []
     for d in range(depth):
         U = lap_matrix[previous_nodes , :]
         after_nodes = []
@@ -79,6 +79,8 @@ def graphsaint_sampler(seed, batch_nodes, samp_num_list, num_nodes, lap_matrix, 
         previous_nodes = after_nodes
 
     sampled = np.unique(sampled)
+    all_nodes = np.concatenate(all_nodes)
+
     u_edges, e_cnts = np.unique(all_edges, axis=0, return_counts=True)
     u_nodes, n_cnts = np.unique(all_nodes, return_counts=True)
     u_node_cnt = dict()
