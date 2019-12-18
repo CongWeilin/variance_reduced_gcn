@@ -1,6 +1,24 @@
 from utils import *
 
 
+def calculate_grad_variance(net, feat_data, labels, train_nodes, adjs_full):
+    net_grads = []
+    for p_net in net.parameters():
+        net_grads.append(p_net.grad.data)
+    clone_net = copy.deepcopy(net)
+    _, _ = clone_net.calculate_loss_grad(feat_data, adjs_full, labels, train_nodes)
+
+    clone_net_grad = []
+    for p_net in clone_net.parameters():
+        clone_net_grad.append(p_net.grad.data)
+    del clone_net
+    
+    variance = 0.0
+    for g1, g2 in zip(net_grads, clone_net_grad):
+        variance += (g1-g2).norm(2) ** 2
+    variance = torch.sqrt(variance)
+    return variance
+
 def package_mxl(mxl, device):
     return [torch.sparse.FloatTensor(mx[0], mx[1], mx[2]).to(device) for mx in mxl]
 
@@ -12,7 +30,7 @@ SPIDER wrapper
 
 def spider_step(net, optimizer, feat_data, labels,
                 train_nodes, valid_nodes,
-                adjs_full, train_data, inner_loop_num, device):
+                adjs_full, train_data, inner_loop_num, device, calculate_grad_vars=False):
     """
     Function to updated weights with a SPIDER backpropagation
     args : net, optimizer, train_loader, test_loader, loss function, number of inner epochs, args
@@ -39,6 +57,7 @@ def spider_step(net, optimizer, feat_data, labels,
     running_loss = [current_loss.cpu().detach()]
     iter_num = 0
 
+    grad_variance = []
     # Run over the train_loader
     while iter_num < inner_loop_num:
         for adjs, input_nodes, output_nodes, sampled_nodes in train_data:
@@ -57,6 +76,10 @@ def spider_step(net, optimizer, feat_data, labels,
             # take SCSG gradient step
             for p_net, p_mini, p_full in zip(net.parameters(), pre_net_mini.parameters(), pre_net_full):
                 p_net.grad.data += p_full - p_mini.grad.data
+
+            # only for experiment purpose to demonstrate ... 
+            if calculate_grad_vars:
+                grad_variance.append(calculate_grad_variance(net, feat_data, labels, train_nodes, adjs_full))
 
             # record previous net full gradient
             pre_net_full = []
@@ -77,7 +100,8 @@ def spider_step(net, optimizer, feat_data, labels,
     # calculate training loss
     train_loss = np.mean(running_loss)
 
-    return train_loss, running_loss
+    return train_loss, running_loss, grad_variance
+
 
 
 """
@@ -87,7 +111,7 @@ SGD wrapper
 
 def sgd_step(net, optimizer, feat_data, labels,
              train_nodes, valid_nodes,
-             adjs_full, train_data, inner_loop_num, device):
+             adjs_full, train_data, inner_loop_num, device, calculate_grad_vars=False):
     """
     Function to updated weights with a SGD backpropagation
     args : net, optimizer, train_loader, test_loader, loss function, number of inner epochs, args
@@ -98,6 +122,7 @@ def sgd_step(net, optimizer, feat_data, labels,
     running_loss = []
     iter_num = 0.0
 
+    grad_variance = []
     # Run over the train_loader
     while iter_num < inner_loop_num:
         for adjs, input_nodes, output_nodes, sampled_nodes in train_data:
@@ -107,6 +132,10 @@ def sgd_step(net, optimizer, feat_data, labels,
             optimizer.zero_grad()
             current_loss = net.partial_grad(
                 feat_data[input_nodes], adjs, labels[output_nodes])
+
+            # only for experiment purpose to demonstrate ... 
+            if calculate_grad_vars:
+                grad_variance.append(calculate_grad_variance(net, feat_data, labels, train_nodes, adjs_full))
 
             #torch.nn.utils.clip_grad_norm_(net.parameters(), 0.2)
             optimizer.step()
@@ -118,8 +147,7 @@ def sgd_step(net, optimizer, feat_data, labels,
     # calculate training loss
     train_loss = np.mean(running_loss)
 
-    return train_loss, running_loss
-
+    return train_loss, running_loss, grad_variance
 
 """
 Full-batch
@@ -128,7 +156,7 @@ Full-batch
 
 def full_step(net, optimizer, feat_data, labels,
               train_nodes, valid_nodes,
-              adjs_full, train_data, inner_loop_num, device):
+              adjs_full, train_data, inner_loop_num, device, calculate_grad_vars=False):
     """
     Function to updated weights with a SGD backpropagation
     args : net, optimizer, train_loader, test_loader, loss function, number of inner epochs, args
@@ -139,6 +167,7 @@ def full_step(net, optimizer, feat_data, labels,
     running_loss = []
     iter_num = 0.0
 
+    grad_variance = []
     # Run over the train_loader
     while iter_num < inner_loop_num:
 
@@ -147,6 +176,9 @@ def full_step(net, optimizer, feat_data, labels,
         current_loss, _ = net.calculate_loss_grad(
             feat_data, adjs_full, labels, train_nodes)
 
+        # only for experiment purpose to demonstrate ... 
+        if calculate_grad_vars:
+            grad_variance.append(calculate_grad_variance(net, feat_data, labels, train_nodes, adjs_full))
         optimizer.step()
 
         # print statistics
@@ -156,7 +188,7 @@ def full_step(net, optimizer, feat_data, labels,
     # calculate training loss
     train_loss = np.mean(running_loss)
 
-    return train_loss, running_loss
+    return train_loss, running_loss, grad_variance
 
 
 """
@@ -216,7 +248,7 @@ Multi-level Variance Reduction
 
 def multi_level_spider_step_v2(net, optimizer, feat_data, labels,
                                train_nodes, valid_nodes, adjs_full, sampled_nodes_full,
-                               train_data, inner_loop_num, forward_wrapper, device, dist_bound=1e-3):
+                               train_data, inner_loop_num, forward_wrapper, device, dist_bound=1e-3, calculate_grad_vars=False):
     """
     Function to updated weights with a Multi-Level SPIDER backpropagation
     args : net, optimizer, train_loader, test_loader, loss function, number of inner epochs, args
@@ -244,6 +276,8 @@ def multi_level_spider_step_v2(net, optimizer, feat_data, labels,
 
     running_loss = [current_loss.cpu().detach()]
     iter_num = 0
+
+    grad_variance = []
 
     # Run over the train_loader
     interupt = False
@@ -291,6 +325,10 @@ def multi_level_spider_step_v2(net, optimizer, feat_data, labels,
             for p_net, p_mini, p_full in zip(net.parameters(), pre_net_mini_grad, pre_net_full):
                 p_net.grad.data += p_full - p_mini
 
+            # only for experiment purpose to demonstrate ... 
+            if calculate_grad_vars:
+                grad_variance.append(calculate_grad_variance(net, feat_data, labels, train_nodes, adjs_full))
+
             # record previous net full gradient
             pre_net_full = []
             for p_net in net.parameters():
@@ -310,12 +348,12 @@ def multi_level_spider_step_v2(net, optimizer, feat_data, labels,
     # calculate training loss
     train_loss = np.mean(running_loss)
 
-    return train_loss, running_loss
+    return train_loss, running_loss, grad_variance
 
 
 def multi_level_spider_step_v1(net, optimizer, feat_data, labels,
                                train_nodes, valid_nodes, adjs_full, sampled_nodes_full,
-                               train_data, inner_loop_num, forward_wrapper, device, dist_bound=1e-3):
+                               train_data, inner_loop_num, forward_wrapper, device, dist_bound=1e-3, calculate_grad_vars=False):
     """
     Function to updated weights with a Multi-Level SPIDER backpropagation
     args : net, optimizer, train_loader, test_loader, loss function, number of inner epochs, args
@@ -340,6 +378,7 @@ def multi_level_spider_step_v1(net, optimizer, feat_data, labels,
     running_loss = [current_loss.cpu().detach()]
     iter_num = 0
 
+    grad_variance = []
     # Run over the train_loader
     interupt = False
     while iter_num < inner_loop_num and not interupt:
@@ -368,6 +407,9 @@ def multi_level_spider_step_v1(net, optimizer, feat_data, labels,
             del pre_net_mini
             pre_net_mini = copy.deepcopy(net)
 
+            # only for experiment purpose to demonstrate ... 
+            if calculate_grad_vars:
+                grad_variance.append(calculate_grad_variance(net, feat_data, labels, train_nodes, adjs_full))
             # torch.nn.utils.clip_grad_norm_(net.parameters(), 0.2)
             optimizer.step()
 
@@ -378,4 +420,4 @@ def multi_level_spider_step_v1(net, optimizer, feat_data, labels,
     # calculate training loss
     train_loss = np.mean(running_loss)
 
-    return train_loss, running_loss
+    return train_loss, running_loss, grad_variance

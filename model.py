@@ -25,6 +25,15 @@ class GCN(nn.Module):
         x = F.log_softmax(x, dim=1)
         return x
 
+    # only used to check out variance
+    # def hier_forward(self, x, adjs):
+    #     res = [x.detach()]
+    #     for ell in range(len(self.gcs)):
+    #         x = self.gcs[ell](x, adjs[ell])
+    #         x = self.relu(x)
+    #         res += [x.detach()]
+    #     return res
+
     def partial_grad(self, x, adjs, targets):
         """
         Function to compute the stochastic gradient

@@ -60,40 +60,30 @@ def graphsage_sampler(seed, batch_nodes, samp_num_list, num_nodes, lap_matrix, l
     sampled_nodes.reverse()
     return adjs, previous_nodes, batch_nodes, sampled_nodes
 
+# predicated
 def graphsaint_sampler(seed, batch_nodes, samp_num_list, num_nodes, lap_matrix, lap_matrix_sq, depth):
-    # random walk sampler with normalization
-    previous_nodes = batch_nodes
-    sampled = []
-    all_nodes, all_edges = [previous_nodes], []
-    for d in range(depth):
-        U = lap_matrix[previous_nodes , :]
-        after_nodes = []
-        for i, U_row in enumerate(U):
-            sample_indices = np.random.choice(U_row.indices, 1000, replace=True)
-            after_nodes.append(sample_indices[0])
-            for j in sample_indices:
-                all_edges.append(np.sort([previous_nodes[i],j]))
-            all_nodes.append(sample_indices)
-        after_nodes = np.array(after_nodes)
-        sampled.append(previous_nodes)
-        previous_nodes = after_nodes
+    lap_matrix_coo = lap_matrix.tocoo()
+    row, col = lap_matrix_coo.row, lap_matrix_coo.col
 
-    sampled = np.unique(sampled)
-    all_nodes = np.concatenate(all_nodes)
+    A = sp.csr_matrix((np.ones_like(lap_matrix.data), lap_matrix.indices, lap_matrix.indptr), shape=lap_matrix.shape)
+    D_inv = 1.0/A.sum(axis=1)
+    sample_prob = D_inv[row] + D_inv[col]
+    sample_prob = len(batch_nodes) * sample_prob / sample_prob.sum()
 
-    u_edges, e_cnts = np.unique(all_edges, axis=0, return_counts=True)
-    u_nodes, n_cnts = np.unique(all_nodes, return_counts=True)
-    u_node_cnt = dict()
-    for u_nodes_,n_cnts_ in zip(u_nodes, n_cnts):
-        u_node_cnt[u_nodes_] = n_cnts_
+    sampled, cnt = [], 0
 
-    for u_edges_,e_cnts_ in zip(u_edges, e_cnts):
-        i,j = u_edges_
-        lap_matrix[i,j] *= float(u_node_cnt[i])/float(e_cnts_)
-        lap_matrix[j,i] *= float(u_node_cnt[j])/float(e_cnts_)
+    while cnt < len(batch_nodes):
+        for e in range(len(sample_prob)):
+            if np.random.rand() < sample_prob[e]:
+                sampled.append(row[e])
+                sampled.append(col[e])
+                cnt += 1
+
+    sampled = np.unique(np.array(sampled))
+
     adj = lap_matrix[sampled,:][:,sampled]
 
-    adjs = [sparse_mx_to_torch_sparse_tensor(adj) for d in range(depth)]
+    adjs = [sparse_mx_to_torch_sparse_tensor(row_normalize(adj)) for d in range(depth)]
     sampled_nodes = [sampled for d in range(depth)]
     return adjs, sampled, sampled, sampled_nodes
 

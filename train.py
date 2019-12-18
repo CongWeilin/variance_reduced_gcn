@@ -436,15 +436,15 @@ susage, loss_train, loss_test, loss_train_all, f1_score_test = sgcn(
     feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  args, device)
 results['sgcn'] = [loss_train, loss_test, loss_train_all, f1_score_test]
 
-print('>>> sgcn_plus')
-susage, loss_train, loss_test, loss_train_all, f1_score_test = sgcn_plus(
-    feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  args, device)
-results['sgcn_plus'] = [loss_train, loss_test, loss_train_all, f1_score_test]
+# print('>>> sgcn_plus')
+# susage, loss_train, loss_test, loss_train_all, f1_score_test = sgcn_plus(
+#     feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  args, device)
+# results['sgcn_plus'] = [loss_train, loss_test, loss_train_all, f1_score_test]
 
-print('>>> sgcn_pplus')
-susage, loss_train, loss_test, loss_train_all, f1_score_test = sgcn_pplus(
-    feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  args, device)
-results['sgcn_pplus'] = [loss_train, loss_test, loss_train_all, f1_score_test]
+# print('>>> sgcn_pplus')
+# susage, loss_train, loss_test, loss_train_all, f1_score_test = sgcn_pplus(
+#     feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  args, device)
+# results['sgcn_pplus'] = [loss_train, loss_test, loss_train_all, f1_score_test]
 
 print('>>> sgcn_pplus_v2')
 susage, loss_train, loss_test, loss_train_all, f1_score_test = sgcn_pplus_v2(
