@@ -113,7 +113,7 @@ This is a zeroth-order and first-order variance reduced version of Stochastic-GC
 """
 
 
-def sgcn_pplus(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  args, device):
+def sgcn_pplus(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  args, device, calculate_grad_vars=False):
 
     # use multiprocess sample data
     process_ids = np.arange(args.batch_num)
@@ -136,16 +136,18 @@ def sgcn_pplus(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nod
     forward_wrapper = ForwardWrapper(
         len(feat_data), args.nhid, args.n_layers, num_classes)
 
-    optimizer = optim.Adam(
-        filter(lambda p: p.requires_grad, susage.parameters()))
+    optimizer = optim.SGD(filter(lambda p : p.requires_grad, susage.parameters()), lr=0.1)
+#     optimizer = optim.Adam(
+#         filter(lambda p: p.requires_grad, susage.parameters()))
 
     loss_train = []
     loss_test = []
-    grad_norm = []
+    grad_variance_all = []
     loss_train_all = []
 
     best_model = copy.deepcopy(susage)
     best_val_loss = 10 # randomly pick a large number is fine
+    best_val_index = 0
 
     for epoch in np.arange(args.epoch_num):
         # fetch train data
@@ -158,11 +160,12 @@ def sgcn_pplus(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nod
                             lap_matrix, lap_matrix_sq, args.n_layers)
 
         inner_loop_num = args.batch_num
-        cur_train_loss, cur_train_loss_all = multi_level_spider_step_v2(susage, optimizer, feat_data, labels,
+        cur_train_loss, cur_train_loss_all, grad_variance = multi_level_spider_step_v2(susage, optimizer, feat_data, labels,
                                                                         train_nodes, valid_nodes, adjs_full, sampled_nodes_full,
-                                                                        train_data, inner_loop_num, forward_wrapper, device, dist_bound=2e-4)
+                                                                        train_data, inner_loop_num, forward_wrapper, device, dist_bound=2e-4,
+                                                                        calculate_grad_vars=calculate_grad_vars)
         loss_train_all.extend(cur_train_loss_all)
-
+        grad_variance_all.extend(grad_variance)
         # calculate validate loss
         susage.eval()
 
@@ -170,10 +173,11 @@ def sgcn_pplus(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nod
         val_loss, _ = susage.calculate_loss_grad(
             feat_data, adjs_full, labels, valid_nodes)
 
-        if val_loss < best_val_loss:
+        if val_loss + 0.01 < best_val_loss:
             best_val_loss = val_loss
             del best_model
             best_model = copy.deepcopy(susage)
+            best_val_index = epoch
 
         cur_test_loss = val_loss
 
@@ -186,15 +190,14 @@ def sgcn_pplus(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nod
               '| test loss: %.8f' % cur_test_loss)
     
     f1_score_test = best_model.calculate_f1(feat_data, adjs_full, labels, test_nodes)
-    return best_model, loss_train, loss_test, loss_train_all, f1_score_test
-
+    return best_model, loss_train[:best_val_index], loss_test[:best_val_index], loss_train_all, f1_score_test, grad_variance_all
 
 """
 This is a first-order variance reduced version of Stochastic-GCN++
 """
 
 
-def sgcn_pplus_v2(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  args, device):
+def sgcn_pplus_v2(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  args, device, calculate_grad_vars=False):
 
     # use multiprocess sample data
     process_ids = np.arange(args.batch_num)
@@ -213,17 +216,18 @@ def sgcn_pplus_v2(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_
         train_nodes, len(feat_data), lap_matrix, args.n_layers)
     adjs_full = package_mxl(adjs_full, device)
 
-    # optimizer = optim.SGD(filter(lambda p : p.requires_grad, susage.parameters()), lr=0.7)
-    optimizer = optim.Adam(
-        filter(lambda p: p.requires_grad, susage.parameters()))
+    optimizer = optim.SGD(filter(lambda p : p.requires_grad, susage.parameters()), lr=0.1)
+#     optimizer = optim.Adam(
+#         filter(lambda p: p.requires_grad, susage.parameters()))
 
     loss_train = []
     loss_test = []
-    grad_norm = []
+    grad_variance_all = []
     loss_train_all = []
 
     best_model = copy.deepcopy(susage)
     best_val_loss = 10 # randomly pick a large number is fine
+    best_val_index = 0
 
     for epoch in np.arange(args.epoch_num):
         # fetch train data
@@ -236,11 +240,12 @@ def sgcn_pplus_v2(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_
                             lap_matrix, lap_matrix_sq, args.n_layers)
 
         inner_loop_num = args.batch_num
-        cur_train_loss, cur_train_loss_all = spider_step(susage, optimizer, feat_data, labels,
+        cur_train_loss, cur_train_loss_all, grad_variance = spider_step(susage, optimizer, feat_data, labels,
                                                          train_nodes, valid_nodes,
-                                                         adjs_full, train_data, inner_loop_num, device)
+                                                         adjs_full, train_data, inner_loop_num, device,
+                                                         calculate_grad_vars=calculate_grad_vars)
         loss_train_all.extend(cur_train_loss_all)
-
+        grad_variance_all.extend(grad_variance)
         # calculate test loss
         susage.eval()
 
@@ -248,10 +253,11 @@ def sgcn_pplus_v2(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_
         val_loss, _ = susage.calculate_loss_grad(
             feat_data, adjs_full, labels, valid_nodes)
 
-        if val_loss < best_val_loss:
+        if val_loss + 0.01 < best_val_loss:
             best_val_loss = val_loss
             del best_model
             best_model = copy.deepcopy(susage)
+            best_val_index = epoch
 
         cur_test_loss = val_loss
 
@@ -264,15 +270,13 @@ def sgcn_pplus_v2(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_
               '| test loss: %.8f' % cur_test_loss)
 
     f1_score_test = best_model.calculate_f1(feat_data, adjs_full, labels, test_nodes)
-    return best_model, loss_train, loss_test, loss_train_all, f1_score_test
-
+    return best_model, loss_train[:best_val_index], loss_test[:best_val_index], loss_train_all, f1_score_test, grad_variance_all
 
 """
 This is a zeroth-order variance reduced version of Stochastic-GCN+
 """
 
-
-def sgcn_plus(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  args, device):
+def sgcn_plus(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  args, device, calculate_grad_vars=False):
 
     # use multiprocess sample data
     process_ids = np.arange(args.batch_num)
@@ -295,16 +299,18 @@ def sgcn_plus(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_node
     forward_wrapper = ForwardWrapper(
         len(feat_data), args.nhid, args.n_layers, num_classes)
 
-    optimizer = optim.Adam(
-        filter(lambda p: p.requires_grad, susage.parameters()))
+    optimizer = optim.SGD(filter(lambda p : p.requires_grad, susage.parameters()), lr=0.1)
+#     optimizer = optim.Adam(
+#         filter(lambda p: p.requires_grad, susage.parameters()))
 
     loss_train = []
     loss_test = []
-    grad_norm = []
+    grad_variance_all = []
     loss_train_all = []
 
     best_model = copy.deepcopy(susage)
     best_val_loss = 10 # randomly pick a large number is fine
+    best_val_index = 0
 
     for epoch in np.arange(args.epoch_num):
         # fetch train data
@@ -318,11 +324,12 @@ def sgcn_plus(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_node
 
         inner_loop_num = args.batch_num
         # compare with sgcn_plus, the only difference is we use multi_level_spider_step_v1 here
-        cur_train_loss, cur_train_loss_all = multi_level_spider_step_v1(susage, optimizer, feat_data, labels,
+        cur_train_loss, cur_train_loss_all, grad_variance = multi_level_spider_step_v1(susage, optimizer, feat_data, labels,
                                                                         train_nodes, valid_nodes, adjs_full, sampled_nodes_full,
-                                                                        train_data, inner_loop_num, forward_wrapper, device, dist_bound=2e-4)
+                                                                        train_data, inner_loop_num, forward_wrapper, device, dist_bound=2e-4,
+                                                                        calculate_grad_vars=calculate_grad_vars)
         loss_train_all.extend(cur_train_loss_all)
-
+        grad_variance_all.extend(grad_variance)
         # calculate validate loss
         susage.eval()
 
@@ -330,10 +337,11 @@ def sgcn_plus(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_node
         val_loss, _ = susage.calculate_loss_grad(
             feat_data, adjs_full, labels, valid_nodes)
 
-        if val_loss < best_val_loss:
+        if val_loss + 0.01 < best_val_loss:
             best_val_loss = val_loss
             del best_model
             best_model = copy.deepcopy(susage)
+            best_val_index = epoch
 
         cur_test_loss = val_loss
 
@@ -346,7 +354,8 @@ def sgcn_plus(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_node
               '| test loss: %.8f' % cur_test_loss)
 
     f1_score_test = best_model.calculate_f1(feat_data, adjs_full, labels, test_nodes)
-    return best_model, loss_train, loss_test, loss_train_all, f1_score_test
+    return best_model, loss_train[:best_val_index], loss_test[:best_val_index], loss_train_all, f1_score_test, grad_variance_all
+
 
 
 """
@@ -354,7 +363,7 @@ This is just an unchanged Stochastic-GCN
 """
 
 
-def sgcn(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  args, device):
+def sgcn(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  args, device, calculate_grad_vars=False, full_batch=False):
 
     # use multiprocess sample data
     process_ids = np.arange(args.batch_num)
@@ -373,16 +382,18 @@ def sgcn(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  a
         train_nodes, len(feat_data), lap_matrix, args.n_layers)
     adjs_full = package_mxl(adjs_full, device)
 
-    optimizer = optim.Adam(
-        filter(lambda p: p.requires_grad, susage.parameters()))
+    optimizer = optim.SGD(filter(lambda p : p.requires_grad, susage.parameters()), lr=0.1)
+#     optimizer = optim.Adam(
+#         filter(lambda p: p.requires_grad, susage.parameters()))
 
     loss_train = []
     loss_test = []
-    grad_norm = []
+    grad_variance_all = []
     loss_train_all = []
 
     best_model = copy.deepcopy(susage)
     best_val_loss = 10 # randomly pick a large number is fine
+    best_val_index = 0
 
     for epoch in np.arange(args.epoch_num):
         # fetch train data
@@ -395,15 +406,20 @@ def sgcn(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  a
                             lap_matrix, lap_matrix_sq, args.n_layers)
 
         inner_loop_num = args.batch_num
-        cur_train_loss, cur_train_loss_all = sgd_step(susage, optimizer, feat_data, labels,
-                                                      train_nodes, valid_nodes,
-                                                      adjs_full, train_data, inner_loop_num, device)
-        # it can also run full-batch GD by ignoring all the samplings
-        # cur_train_loss, cur_train_loss_all = full_step(susage, optimizer, feat_data, labels,
-        #                         train_nodes, valid_nodes,
-        #                         adjs_full, train_data, inner_loop_num, device)
-        loss_train_all.extend(cur_train_loss_all)
 
+        # it can also run full-batch GD by ignoring all the samplings
+        if full_batch:
+            cur_train_loss, cur_train_loss_all, grad_variance = full_step(susage, optimizer, feat_data, labels,
+                                    train_nodes, valid_nodes,
+                                    adjs_full, train_data, inner_loop_num, device, 
+                                    calculate_grad_vars=calculate_grad_vars)
+        else:
+            cur_train_loss, cur_train_loss_all, grad_variance = sgd_step(susage, optimizer, feat_data, labels,
+                                              train_nodes, valid_nodes,
+                                              adjs_full, train_data, inner_loop_num, device, 
+                                              calculate_grad_vars=calculate_grad_vars)
+        loss_train_all.extend(cur_train_loss_all)
+        grad_variance_all.extend(grad_variance)
         # calculate test loss
         susage.eval()
 
@@ -411,10 +427,11 @@ def sgcn(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  a
         val_loss, _ = susage.calculate_loss_grad(
             feat_data, adjs_full, labels, valid_nodes)
 
-        if val_loss < best_val_loss:
+        if val_loss + 0.01 < best_val_loss:
             best_val_loss = val_loss
             del best_model
             best_model = copy.deepcopy(susage)
+            best_val_index = epoch
             
         cur_test_loss = val_loss
 
@@ -426,30 +443,36 @@ def sgcn(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  a
               '| train loss: %.8f' % cur_train_loss,
               '| test loss: %.8f' % cur_test_loss)
     f1_score_test = best_model.calculate_f1(feat_data, adjs_full, labels, test_nodes)
-    return best_model, loss_train, loss_test, loss_train_all, f1_score_test
-
+    return best_model, loss_train[:best_val_index], loss_test[:best_val_index], loss_train_all, f1_score_test, grad_variance_all
 
 results = dict()
 
+calculate_gradient_norm = True
+
 print('>>> sgcn')
-susage, loss_train, loss_test, loss_train_all, f1_score_test = sgcn(
-    feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  args, device)
-results['sgcn'] = [loss_train, loss_test, loss_train_all, f1_score_test]
+susage, loss_train, loss_test, loss_train_all, f1_score_test, grad_variance_all  = sgcn(
+    feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  args, device, calculate_gradient_norm, full_batch=False)
+results['sgcn'] = [loss_train, loss_test, loss_train_all, f1_score_test, grad_variance_all]
 
-# print('>>> sgcn_plus')
-# susage, loss_train, loss_test, loss_train_all, f1_score_test = sgcn_plus(
-#     feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  args, device)
-# results['sgcn_plus'] = [loss_train, loss_test, loss_train_all, f1_score_test]
+print('>>> full')
+susage, loss_train, loss_test, loss_train_all, f1_score_test, grad_variance_all  = sgcn(
+    feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  args, device, calculate_gradient_norm, full_batch=True)
+results['full'] = [loss_train, loss_test, loss_train_all, f1_score_test, grad_variance_all]
 
-# print('>>> sgcn_pplus')
-# susage, loss_train, loss_test, loss_train_all, f1_score_test = sgcn_pplus(
-#     feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  args, device)
-# results['sgcn_pplus'] = [loss_train, loss_test, loss_train_all, f1_score_test]
+print('>>> sgcn_plus')
+susage, loss_train, loss_test, loss_train_all, f1_score_test, grad_variance_all = sgcn_plus(
+    feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  args, device, calculate_gradient_norm)
+results['sgcn_plus'] = [loss_train, loss_test, loss_train_all, f1_score_test, grad_variance_all]
+
+print('>>> sgcn_pplus')
+susage, loss_train, loss_test, loss_train_all, f1_score_test, grad_variance_all = sgcn_pplus(
+    feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  args, device, calculate_gradient_norm)
+results['sgcn_pplus'] = [loss_train, loss_test, loss_train_all, f1_score_test, grad_variance_all]
 
 print('>>> sgcn_pplus_v2')
-susage, loss_train, loss_test, loss_train_all, f1_score_test = sgcn_pplus_v2(
-    feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  args, device)
-results['sgcn_pplus_v2'] = [loss_train, loss_test, loss_train_all, f1_score_test]
+susage, loss_train, loss_test, loss_train_all, f1_score_test, grad_variance_all = sgcn_pplus_v2(
+    feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  args, device, calculate_gradient_norm)
+results['sgcn_pplus_v2'] = [loss_train, loss_test, loss_train_all, f1_score_test, grad_variance_all]
 
 with open('./results/{}_{}.pkl'.format(args.sample_method, args.dataset), 'wb') as f:
     pkl.dump(results, f)

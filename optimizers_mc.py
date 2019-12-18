@@ -349,7 +349,7 @@ def multi_level_spider_step_v2(net, optimizer, feat_data, labels,
     # calculate training loss
     train_loss = np.mean(running_loss)
 
-    return train_loss, running_loss
+    return train_loss, running_loss, grad_variance
 
 
 def multi_level_spider_step_v1(net, optimizer, feat_data, labels,

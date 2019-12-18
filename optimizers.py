@@ -38,6 +38,8 @@ def spider_step(net, optimizer, feat_data, labels,
     """
     net.train()
 
+    # record previous net full gradient
+    pre_net_full = copy.deepcopy(net)
     # record previous net mini batch gradient
     pre_net_mini = copy.deepcopy(net)
 
@@ -46,15 +48,9 @@ def spider_step(net, optimizer, feat_data, labels,
     current_loss, _ = net.calculate_loss_grad(
         feat_data, adjs_full, labels, train_nodes)
 
-    # record previous net full gradient
-    pre_net_full = []
-    for p_net in net.parameters():
-        pre_net_full.append(p_net.grad.data)
-
-    #torch.nn.utils.clip_grad_norm_(net.parameters(), 0.2)
     optimizer.step()
 
-    running_loss = [current_loss.cpu().detach()]
+    running_loss = []
     iter_num = 0
 
     grad_variance = []
@@ -62,6 +58,11 @@ def spider_step(net, optimizer, feat_data, labels,
     while iter_num < inner_loop_num:
         for adjs, input_nodes, output_nodes, sampled_nodes in train_data:
             adjs = package_mxl(adjs, device)
+
+            # record previous net full gradient
+            for p_net, p_full in zip(net.parameters(), pre_net_full.parameters()):
+                p_full.grad = copy.deepcopy(p_net.grad)
+
             # compute previous stochastic gradient
             pre_net_mini.zero_grad()
             # take backward
@@ -74,23 +75,17 @@ def spider_step(net, optimizer, feat_data, labels,
                 feat_data[input_nodes], adjs, labels[output_nodes])
 
             # take SCSG gradient step
-            for p_net, p_mini, p_full in zip(net.parameters(), pre_net_mini.parameters(), pre_net_full):
-                p_net.grad.data += p_full - p_mini.grad.data
+            for p_net, p_mini, p_full in zip(net.parameters(), pre_net_mini.parameters(), pre_net_full.parameters()):
+                p_net.grad.data = p_net.grad.data + p_full.grad.data - p_mini.grad.data
 
             # only for experiment purpose to demonstrate ... 
             if calculate_grad_vars:
                 grad_variance.append(calculate_grad_variance(net, feat_data, labels, train_nodes, adjs_full))
 
-            # record previous net full gradient
-            pre_net_full = []
-            for p_net in net.parameters():
-                pre_net_full.append(p_net.grad.data)
-
             # record previous net mini batch gradient
-            del pre_net_mini
-            pre_net_mini = copy.deepcopy(net)
+            for p_mini, p_net in zip(pre_net_mini.parameters(), net.parameters()):
+                p_mini.data = copy.deepcopy(p_net.data)
 
-            #torch.nn.utils.clip_grad_norm_(net.parameters(), 0.2)
             optimizer.step()
 
             # print statistics
@@ -137,7 +132,7 @@ def sgd_step(net, optimizer, feat_data, labels,
             if calculate_grad_vars:
                 grad_variance.append(calculate_grad_variance(net, feat_data, labels, train_nodes, adjs_full))
 
-            #torch.nn.utils.clip_grad_norm_(net.parameters(), 0.2)
+        
             optimizer.step()
 
             # print statistics
@@ -256,8 +251,11 @@ def multi_level_spider_step_v2(net, optimizer, feat_data, labels,
     """
     net.train()
 
+    # record previous net full gradient
+    pre_net_full = copy.deepcopy(net)
     # record previous net mini batch gradient
-    pre_net_mini = copy.deepcopy(net)
+    pre_net_mini_v1 = copy.deepcopy(net)
+    pre_net_mini_v2 = copy.deepcopy(net)
 
     # Compute full grad
     optimizer.zero_grad()
@@ -265,10 +263,6 @@ def multi_level_spider_step_v2(net, optimizer, feat_data, labels,
         net, feat_data, adjs_full, sampled_nodes_full)
     current_loss = F.nll_loss(outputs[train_nodes], labels[train_nodes])
     current_loss.backward()
-    # record previous net full gradient
-    pre_net_full = []
-    for p_net in net.parameters():
-        pre_net_full.append(p_net.grad.data)
 
     initial_hiddens = copy.deepcopy(forward_wrapper.hiddens)
     # torch.nn.utils.clip_grad_norm_(net.parameters(), 0.2)
@@ -284,10 +278,15 @@ def multi_level_spider_step_v2(net, optimizer, feat_data, labels,
     while iter_num < inner_loop_num and not interupt:
         for adjs, input_nodes, output_nodes, sampled_nodes in train_data:
             adjs = package_mxl(adjs, device)
+
+            # record previous net full gradient
+            for p_net, p_full in zip(net.parameters(), pre_net_full.parameters()):
+                p_full.grad = copy.deepcopy(p_net.grad)
+
             # compute previous stochastic gradient
-            pre_net_mini.zero_grad()
+            pre_net_mini_v1.zero_grad()
             outputs = forward_wrapper.forward_mini_staled(
-                pre_net_mini, feat_data[input_nodes], adjs, sampled_nodes)
+                pre_net_mini_v1, feat_data[input_nodes], adjs, sampled_nodes)
             staled_loss = F.nll_loss(outputs, labels[output_nodes])
             # debug only, set mini-batch size as full batch, it should have the exact same curve as full-batch GD
             # outputs = forward_wrapper.forward_mini_staled(
@@ -295,16 +294,12 @@ def multi_level_spider_step_v2(net, optimizer, feat_data, labels,
             # staled_loss = F.nll_loss(outputs[train_nodes], labels[train_nodes])
             staled_loss.backward()
 
-            pre_net_mini_grad = []
-            for p_mini in pre_net_mini.parameters():
-                pre_net_mini_grad.append(p_mini.grad.data)
-
             # compute current stochastic gradient
-            pre_net_mini.zero_grad()
+            pre_net_mini_v2.zero_grad()
             optimizer.zero_grad()
 
             outputs = forward_wrapper.forward_mini(
-                net, pre_net_mini, feat_data[input_nodes], adjs, sampled_nodes)
+                net, pre_net_mini_v2, feat_data[input_nodes], adjs, sampled_nodes)
             # debug only, set mini-batch size as full batch, it should have the exact same curve as full-batch GD
             # outputs = forward_wrapper.forward_mini(
             #     net, pre_net_mini, feat_data, adjs_full, sampled_nodes_full)
@@ -322,23 +317,18 @@ def multi_level_spider_step_v2(net, optimizer, feat_data, labels,
             current_loss.backward()
 
             # take SCSG gradient step
-            for p_net, p_mini, p_full in zip(net.parameters(), pre_net_mini_grad, pre_net_full):
-                p_net.grad.data += p_full - p_mini
+            for p_net, p_mini, p_full in zip(net.parameters(), pre_net_mini_v1.parameters(), pre_net_full.parameters()):
+                p_net.grad.data = p_net.grad.data + p_full.grad.data - p_mini.grad.data
 
             # only for experiment purpose to demonstrate ... 
             if calculate_grad_vars:
                 grad_variance.append(calculate_grad_variance(net, feat_data, labels, train_nodes, adjs_full))
 
-            # record previous net full gradient
-            pre_net_full = []
-            for p_net in net.parameters():
-                pre_net_full.append(p_net.grad.data)
-
             # record previous net mini batch gradient
-            del pre_net_mini
-            pre_net_mini = copy.deepcopy(net)
+            for p_mini_v1, p_mini_v2, p_net in zip(pre_net_mini_v1.parameters(), pre_net_mini_v2.parameters(), net.parameters()):
+                p_mini_v1.data = copy.deepcopy(p_net.data)
+                p_mini_v2.data = copy.deepcopy(p_net.data)
 
-            # torch.nn.utils.clip_grad_norm_(net.parameters(), 0.2)
             optimizer.step()
 
             # print statistics
@@ -361,6 +351,8 @@ def multi_level_spider_step_v1(net, optimizer, feat_data, labels,
     """
     net.train()
 
+    # record previous net full gradient
+    pre_net_full = copy.deepcopy(net)
     # record previous net mini batch gradient
     pre_net_mini = copy.deepcopy(net)
 
@@ -404,8 +396,8 @@ def multi_level_spider_step_v1(net, optimizer, feat_data, labels,
             current_loss.backward()
 
             # record previous net mini batch gradient
-            del pre_net_mini
-            pre_net_mini = copy.deepcopy(net)
+            for p_mini, p_net in zip(pre_net_mini.parameters(), net.parameters()):
+                p_mini.data = copy.deepcopy(p_net.data)
 
             # only for experiment purpose to demonstrate ... 
             if calculate_grad_vars:
