@@ -6,6 +6,7 @@ import os
 def name_trans(key, method):
     name_trans = {'sgcn':'{}'.format(method), 
                   'sgcn_plus':'{}+'.format(method), 
+                  'sgcn_plus_v2':'{}+(momentum)'.format(method),
                   'sgcn_pplus':'{}++'.format(method), 
                   'sgcn_pplus_v2':'{}++(grad only)'.format(method), 
                   'full':'Full-batch'}
@@ -97,11 +98,12 @@ def draw_grad_variance(results, method):
     plt.legend()
     plt.savefig('{}_grad_vars_step.pdf'.format(prefix))
 
-def get_f1_score(results, dataset, method):
+def get_f1_score(results, dataset, method, f):
     for key, values in results.items():
         key = name_trans(key, method)
         loss_train, loss_test, loss_train_all, f1, grad_vars, best_val_index = values
-        print(dataset, method, key, '%.5f'%f1)
+        log = "{}, {}, {}, {}\n".format(dataset, method, key, f1)
+        f.write(log)
 
 datasets = ['Flickr', 'Reddit', 'PPI', 'PPI-large', 'Yelp']
 methods = ['LADIES', 'FastGCN', 'GraphSage', 'GraphSaint']

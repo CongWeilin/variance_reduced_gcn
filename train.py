@@ -149,6 +149,7 @@ def sgcn_pplus(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nod
     best_model = copy.deepcopy(susage)
     best_val_loss = 10  # randomly pick a large number is fine
     best_val_index = 0
+    best_val_cnt = 0
 
     for epoch in np.arange(args.epoch_num):
         # fetch train data
@@ -179,8 +180,10 @@ def sgcn_pplus(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nod
             del best_model
             best_model = copy.deepcopy(susage)
             best_val_index = epoch
+            best_val_cnt = 0
 
         cur_test_loss = val_loss
+        best_val_cnt += 1
 
         loss_train.append(cur_train_loss)
         loss_test.append(cur_test_loss)
@@ -189,6 +192,9 @@ def sgcn_pplus(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nod
         print('Epoch: ', epoch,
               '| train loss: %.8f' % cur_train_loss,
               '| test loss: %.8f' % cur_test_loss)
+
+        if best_val_cnt > 10:
+            break
 
     f1_score_test = best_model.calculate_f1(
         feat_data, adjs_full, labels, test_nodes)
@@ -230,6 +236,7 @@ def sgcn_pplus_v2(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_
     best_model = copy.deepcopy(susage)
     best_val_loss = 10  # randomly pick a large number is fine
     best_val_index = 0
+    best_val_cnt = 0
 
     for epoch in np.arange(args.epoch_num):
         # fetch train data
@@ -260,8 +267,10 @@ def sgcn_pplus_v2(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_
             del best_model
             best_model = copy.deepcopy(susage)
             best_val_index = epoch
+            best_val_cnt = 0
 
         cur_test_loss = val_loss
+        best_val_cnt += 1
 
         loss_train.append(cur_train_loss)
         loss_test.append(cur_test_loss)
@@ -270,6 +279,9 @@ def sgcn_pplus_v2(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_
         print('Epoch: ', epoch,
               '| train loss: %.8f' % cur_train_loss,
               '| test loss: %.8f' % cur_test_loss)
+
+        if best_val_cnt > 10:
+            break
 
     f1_score_test = best_model.calculate_f1(
         feat_data, adjs_full, labels, test_nodes)
@@ -315,6 +327,7 @@ def sgcn_plus(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_node
     best_model = copy.deepcopy(susage)
     best_val_loss = 10  # randomly pick a large number is fine
     best_val_index = 0
+    best_val_cnt = 0
 
     for epoch in np.arange(args.epoch_num):
         # fetch train data
@@ -346,8 +359,10 @@ def sgcn_plus(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_node
             del best_model
             best_model = copy.deepcopy(susage)
             best_val_index = epoch
+            best_val_cnt = 0
 
         cur_test_loss = val_loss
+        best_val_cnt += 1
 
         loss_train.append(cur_train_loss)
         loss_test.append(cur_test_loss)
@@ -356,6 +371,9 @@ def sgcn_plus(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_node
         print('Epoch: ', epoch,
               '| train loss: %.8f' % cur_train_loss,
               '| test loss: %.8f' % cur_test_loss)
+        
+        if best_val_cnt > 10:
+            break
 
     f1_score_test = best_model.calculate_f1(
         feat_data, adjs_full, labels, test_nodes)
@@ -397,6 +415,7 @@ def sgcn(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  a
     best_model = copy.deepcopy(susage)
     best_val_loss = 10  # randomly pick a large number is fine
     best_val_index = 0
+    best_val_cnt = 0
 
     for epoch in np.arange(args.epoch_num):
         # fetch train data
@@ -435,8 +454,10 @@ def sgcn(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  a
             del best_model
             best_model = copy.deepcopy(susage)
             best_val_index = epoch
+            best_val_cnt = 0
 
         cur_test_loss = val_loss
+        best_val_cnt += 1
 
         loss_train.append(cur_train_loss)
         loss_test.append(cur_test_loss)
@@ -445,6 +466,9 @@ def sgcn(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  a
         print('Epoch: ', epoch,
               '| train loss: %.8f' % cur_train_loss,
               '| test loss: %.8f' % cur_test_loss)
+
+        if best_val_cnt > 10:
+            break 
     f1_score_test = best_model.calculate_f1(
         feat_data, adjs_full, labels, test_nodes)
     return best_model, loss_train, loss_test, loss_train_all, f1_score_test, grad_variance_all, best_val_index
@@ -484,6 +508,7 @@ def sgcn_plus_v2(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_n
     best_model = copy.deepcopy(susage)
     best_val_loss = 10  # randomly pick a large number is fine
     best_val_index = 0
+    best_val_cnt = 0
 
     for epoch in np.arange(args.epoch_num):
         # fetch train data
@@ -515,8 +540,10 @@ def sgcn_plus_v2(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_n
             del best_model
             best_model = copy.deepcopy(susage)
             best_val_index = epoch
+            best_val_cnt = 0
 
         cur_test_loss = val_loss
+        best_val_cnt += 1
 
         loss_train.append(cur_train_loss)
         loss_test.append(cur_test_loss)
@@ -525,6 +552,9 @@ def sgcn_plus_v2(feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_n
         print('Epoch: ', epoch,
               '| train loss: %.8f' % cur_train_loss,
               '| test loss: %.8f' % cur_test_loss)
+
+        if best_val_cnt > 10:
+            break
 
     f1_score_test = best_model.calculate_f1(
         feat_data, adjs_full, labels, test_nodes)
@@ -557,7 +587,7 @@ print('>>> sgcn_plus_v2')
 susage, loss_train, loss_test, loss_train_all, f1_score_test, grad_variance_all = sgcn_plus_v2(
     feat_data, labels, lap_matrix, train_nodes, valid_nodes, test_nodes,  args, device, calculate_grad_vars)
 results['sgcn_plus_v2'] = [loss_train, loss_test,
-                           loss_train_all, f1_score_test, grad_variance_all]
+                           loss_train_all, f1_score_test, grad_variance_all, best_val_index]
 
 print('>>> sgcn_pplus')
 susage, loss_train, loss_test, loss_train_all, f1_score_test, grad_variance_all, best_val_index = sgcn_pplus(
